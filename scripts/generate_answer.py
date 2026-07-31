@@ -14,6 +14,8 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import os
 from pathlib import Path
+import sys
+import time 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
@@ -328,7 +330,6 @@ def normalize_answer_payload(answer_text: str) -> Dict[str, Any]:
 def citation_lookup(citations: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
     return {c["label"]: c for c in citations}
 
-
 def main():
     parser = argparse.ArgumentParser(description="Generate structured RAG answer with Gemini API.")
     parser.add_argument("query", type=str, help="User question")
@@ -355,6 +356,7 @@ def main():
     persist_dir = Path(args.persist_dir)
     where = parse_where_filters(args)
 
+    t0 = time.time()  # ---- 開始：向量檢索 ----
     query_result = query_collection(
         persist_dir=persist_dir,
         collection_name=args.collection,
@@ -363,6 +365,7 @@ def main():
         top_k=args.top_k,
         where=where,
     )
+    t1 = time.time()  # ---- 結束：向量檢索 ----
 
     documents = query_result.get("documents", [[]])[0]
     metadatas = query_result.get("metadatas", [[]])[0]
@@ -381,13 +384,16 @@ def main():
             "gemini_model": args.gemini_model,
         }
         print(json.dumps(output, ensure_ascii=False, indent=2 if args.pretty else None))
+        print(f"[TIMING] 檢索耗時: {t1 - t0:.2f}s (無結果，提早結束)", file=sys.stderr)
         return
 
+    t2 = time.time()  # ---- 開始：組合 Prompt ----
     context_blocks = build_context_blocks(documents, metadatas, distances)
     context_text = format_context_for_prompt(context_blocks)
     system_prompt = build_system_prompt()
     user_prompt = build_user_prompt(args.query, context_text)
     citations = build_citations(context_blocks)
+    t3 = time.time()  # ---- 結束：組合 Prompt ----
 
     if args.prompt_only:
         output = {
@@ -398,8 +404,10 @@ def main():
             "retrieved_context": context_blocks,
         }
         print(json.dumps(output, ensure_ascii=False, indent=2 if args.pretty else None))
+        print(f"[TIMING] 檢索耗時: {t1 - t0:.2f}s | Prompt組裝耗時: {t3 - t2:.2f}s", file=sys.stderr)
         return
 
+    t4 = time.time()  # ---- 開始：Gemini 生成 ----
     answer_text = call_gemini_chat(
         api_key=api_key,
         base_url=args.api_base,
@@ -409,7 +417,9 @@ def main():
         temperature=args.temperature,
         max_tokens=args.max_tokens,
     )
+    t5 = time.time()  # ---- 結束：Gemini 生成 ----
 
+    t6 = time.time()  # ---- 開始：後處理 ----
     structured = normalize_answer_payload(answer_text)
     lookup = citation_lookup(citations)
 
@@ -418,6 +428,7 @@ def main():
         for label in structured["citation_labels"]
         if label in lookup
     ]
+    t7 = time.time()  # ---- 結束：後處理 ----
 
     output = {
         "question": args.query,
@@ -435,6 +446,12 @@ def main():
 
     print(json.dumps(output, ensure_ascii=False, indent=2 if args.pretty else None))
 
+    # ---- 統一輸出各階段耗時 ----
+    print(f"[TIMING] 向量檢索: {t1 - t0:.2f}s", file=sys.stderr)
+    print(f"[TIMING] Prompt組裝: {t3 - t2:.2f}s", file=sys.stderr)
+    print(f"[TIMING] Gemini生成: {t5 - t4:.2f}s", file=sys.stderr)
+    print(f"[TIMING] 後處理: {t7 - t6:.2f}s", file=sys.stderr)
+    print(f"[TIMING] 總耗時: {t7 - t0:.2f}s", file=sys.stderr)
 
 if __name__ == "__main__":
     main()
