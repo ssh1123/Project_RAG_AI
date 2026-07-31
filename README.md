@@ -1,6 +1,6 @@
 # RAG_AI
 
-RAG_AI 是一個用來支援 **Wind Village** 專案的 RAG（Retrieval-Augmented Generation）後端工具集合。它負責建立知識庫、產生向量嵌入、查詢 RAG 結果，並用 Gemini 產生回答。
+RAG_AI 是一個用來支援 **Wind Village** 專案的 RAG（Retrieval-Augmented Generation）後端工具集合。它負責建立知識庫、產生向量嵌入、查詢 RAG 結果，並用 Gemini 產生回答。123
 
 ## 專案結構
 
