@@ -12,6 +12,7 @@ RAG_AI/
 │   ├── build_embeddings.py
 │   ├── query_rag.py
 │   └── answer_rag.py
+│   └──...
 ├── chroma_db/
 ├── data/
 ├── .env
