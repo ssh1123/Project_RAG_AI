@@ -8,8 +8,9 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import chromadb
-from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+#import chromadb
+#from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+from simple_vector_store import search
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
@@ -330,6 +331,8 @@ def normalize_answer_payload(answer_text: str) -> Dict[str, Any]:
 def citation_lookup(citations: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
     return {c["label"]: c for c in citations}
 
+from simple_vector_store import search
+
 def main():
     parser = argparse.ArgumentParser(description="Generate structured RAG answer with Gemini API.")
     parser.add_argument("query", type=str, help="User question")
@@ -347,7 +350,7 @@ def main():
     parser.add_argument("--max-tokens", type=int, default=700, help="Max output tokens")
     parser.add_argument("--prompt-only", action="store_true", help="Print prompts without calling Gemini")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output")
-    args = parser.parse_args()
+    args = parser.parse_args()   # <-- 這一行必須存在！
 
     api_key = os.getenv("GEMINI_API_KEY")
     if not args.prompt_only and not api_key:
@@ -355,22 +358,15 @@ def main():
 
     persist_dir = Path(args.persist_dir)
     where = parse_where_filters(args)
-
     t0 = time.time()  # ---- 開始：向量檢索 ----
-    query_result = query_collection(
-        persist_dir=persist_dir,
-        collection_name=args.collection,
-        embed_model_name=args.embed_model,
-        query_text=args.query,
+    # 不再用 query_collection / query_result
+    documents, metadatas, distances = search(
+        query=args.query,
         top_k=args.top_k,
-        where=where,
     )
     t1 = time.time()  # ---- 結束：向量檢索 ----
 
-    documents = query_result.get("documents", [[]])[0]
-    metadatas = query_result.get("metadatas", [[]])[0]
-    distances = query_result.get("distances", [[]])[0]
-
+    # 後面直接用 documents/metadatas/distances
     if not documents:
         output = {
             "question": args.query,
@@ -387,14 +383,14 @@ def main():
         print(f"[TIMING] 檢索耗時: {t1 - t0:.2f}s (無結果，提早結束)", file=sys.stderr)
         return
 
-    t2 = time.time()  # ---- 開始：組合 Prompt ----
+    # 後面這幾行保持原樣即可
+    t2 = time.time()
     context_blocks = build_context_blocks(documents, metadatas, distances)
     context_text = format_context_for_prompt(context_blocks)
     system_prompt = build_system_prompt()
     user_prompt = build_user_prompt(args.query, context_text)
     citations = build_citations(context_blocks)
-    t3 = time.time()  # ---- 結束：組合 Prompt ----
-
+    t3 = time.time()
     if args.prompt_only:
         output = {
             "question": args.query,
