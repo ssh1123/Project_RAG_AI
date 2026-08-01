@@ -295,6 +295,7 @@ GEMINI_API_KEY=你的_api_key
 
 ```powershell
 .\env_rag\Scripts\python.exe scripts\build_embeddings.py
+.\env_rag\Scripts\python.exe scripts\build_index.py
 ```
 
 ### 6. 測試查詢
