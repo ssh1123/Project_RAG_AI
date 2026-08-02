@@ -294,7 +294,6 @@ GEMINI_API_KEY=你的_api_key
 ### 5. 建立向量嵌入
 
 ```powershell
-.\env_rag\Scripts\python.exe scripts\build_embeddings.py
 .\env_rag\Scripts\python.exe scripts\build_index.py
 ```
 
