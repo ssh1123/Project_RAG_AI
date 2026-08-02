@@ -4,75 +4,13 @@
 import argparse
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-import chromadb
-from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
-
+# 改成使用 simple_vector_store
+from simple_vector_store import load_index, search
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DEFAULT_PERSIST_DIR = BASE_DIR / "chroma_db"
-DEFAULT_COLLECTION_NAME = "kazemachi_game_knowledge"
-DEFAULT_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 DEFAULT_TOP_K = 4
-
-
-def get_embedding_function(model_name: str):
-    return SentenceTransformerEmbeddingFunction(model_name=model_name)
-
-
-def get_collection(
-    persist_dir: Path,
-    collection_name: str,
-    model_name: str,
-):
-    client = chromadb.PersistentClient(path=str(persist_dir))
-    embedding_function = get_embedding_function(model_name)
-    return client.get_collection(
-        name=collection_name,
-        embedding_function=embedding_function,
-    )
-
-
-def parse_where_filters(args: argparse.Namespace) -> Optional[Dict[str, Any]]:
-    where: Dict[str, Any] = {}
-
-    if args.doc_type:
-        where["document_type"] = args.doc_type
-
-    if args.chapter_gate is not None:
-        where["chapter_gate"] = str(args.chapter_gate)
-
-    if args.spoiler_level:
-        where["spoiler_level"] = args.spoiler_level
-
-    return where if where else None
-
-
-def query_collection(
-    persist_dir: Path,
-    collection_name: str,
-    model_name: str,
-    query_text: str,
-    top_k: int,
-    where: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
-    collection = get_collection(
-        persist_dir=persist_dir,
-        collection_name=collection_name,
-        model_name=model_name,
-    )
-
-    kwargs = {
-        "query_texts": [query_text],
-        "n_results": top_k,
-        "include": ["documents", "metadatas", "distances"],
-    }
-
-    if where:
-        kwargs["where"] = where
-
-    return collection.query(**kwargs)
 
 
 def build_context_blocks(
@@ -80,7 +18,7 @@ def build_context_blocks(
     metadatas: List[Dict[str, Any]],
     distances: List[Any],
 ) -> List[Dict[str, Any]]:
-    blocks = []
+    blocks: List[Dict[str, Any]] = []
 
     for idx, (doc, meta, dist) in enumerate(zip(documents, metadatas, distances), start=1):
         block = {
@@ -102,7 +40,7 @@ def build_context_blocks(
 
 
 def format_context_for_prompt(context_blocks: List[Dict[str, Any]]) -> str:
-    parts = []
+    parts: List[str] = []
 
     for block in context_blocks:
         part = (
@@ -173,42 +111,47 @@ def build_answer_skeleton(
         "expected_answer_format": {
             "short_answer": "",
             "detailed_answer": "",
-            "citations": ["[來源1]", "[來源2]"]
+            "citations": ["[來源1]", "[來源2]"],
         },
-        "citations": citations
+        "citations": citations,
     }
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Build RAG answer skeleton from local Chroma retrieval.")
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Build RAG answer skeleton from simple_vector_store retrieval."
+    )
     parser.add_argument("query", type=str, help="User question")
-    parser.add_argument("--persist-dir", type=str, default=str(DEFAULT_PERSIST_DIR), help="Chroma persist directory")
-    parser.add_argument("--collection", type=str, default=DEFAULT_COLLECTION_NAME, help="Collection name")
-    parser.add_argument("--model", type=str, default=DEFAULT_MODEL_NAME, help="Sentence Transformers model name")
-    parser.add_argument("--top-k", type=int, default=DEFAULT_TOP_K, help="Number of chunks to retrieve")
-    parser.add_argument("--doc-type", type=str, choices=["concept", "lore"], help="Filter by document_type")
-    parser.add_argument("--chapter-gate", type=int, help="Filter by chapter_gate")
-    parser.add_argument("--spoiler-level", type=str, help="Filter by spoiler_level")
-    parser.add_argument("--context-only", action="store_true", help="Print prompt-ready context only")
-    parser.add_argument("--prompt-only", action="store_true", help="Print system prompt + user prompt only")
-    parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output")
+    parser.add_argument(
+        "--top-k",
+        type=int,
+        default=DEFAULT_TOP_K,
+        help="Number of chunks to retrieve",
+    )
+    parser.add_argument(
+        "--context-only",
+        action="store_true",
+        help="Print prompt-ready context only",
+    )
+    parser.add_argument(
+        "--prompt-only",
+        action="store_true",
+        help="Print system prompt + user prompt only",
+    )
+    parser.add_argument(
+        "--pretty",
+        action="store_true",
+        help="Pretty-print JSON output",
+    )
     args = parser.parse_args()
 
-    persist_dir = Path(args.persist_dir)
-    where = parse_where_filters(args)
+    # 啟動時載入 simple_index.npz 與 embedding 模型
+    load_index()
 
-    result = query_collection(
-        persist_dir=persist_dir,
-        collection_name=args.collection,
-        model_name=args.model,
-        query_text=args.query,
+    documents, metadatas, distances = search(
+        query=args.query,
         top_k=args.top_k,
-        where=where,
     )
-
-    documents = result.get("documents", [[]])[0]
-    metadatas = result.get("metadatas", [[]])[0]
-    distances = result.get("distances", [[]])[0]
 
     if not documents:
         output = {
@@ -217,7 +160,7 @@ def main():
             "system_prompt": build_system_prompt(),
             "user_prompt": "",
             "retrieved_context": [],
-            "citations": []
+            "citations": [],
         }
         print(json.dumps(output, ensure_ascii=False, indent=2 if args.pretty else None))
         return
