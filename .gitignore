@@ -17,7 +17,7 @@
 env/
 env_rag/
 project/
-
+env
 *.dll
 *.lib
 *.log
