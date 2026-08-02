@@ -332,6 +332,7 @@ GEMINI_API_KEY=你的_api_key
 
 - 建議不要把虛擬環境資料夾提交到 Git。
 - `chroma_db/` 若是可重建資料，可視專案需求決定是否提交。
+- (已改成使用simple_vector_store，因chroma不相容)
 - `.env` 不要提交到 Git，避免洩漏 API Key。
 - 如果要讓 Unity 只顯示簡短回答，可以先只讀 `short_answer` 欄位。
 - 若隊友要新增資料，請盡量依照上面的模板格式建立，避免資料結構不一致。
@@ -365,7 +366,7 @@ python-dotenv
 
 1. 先整理 `data/`。
 2. 執行 `build_chunks.py`。
-3. 執行 `build_embeddings.py`。
+3. 執行 `build_index.py`。
 4. 用 `query_rag.py` 確認檢索結果正確。
 5. 用 `answer_rag.py` 或 `generate_answer.py` 產生答案。
 6. 最後再接 Unity 前端。
