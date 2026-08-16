@@ -11,6 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 CONCEPTS_DIR = DATA_DIR / "concepts"
 LORE_DIR = DATA_DIR / "lore"
+NPC_DIR = DATA_DIR / "npc"
 OUTPUT_DIR = BASE_DIR / "output"
 OUTPUT_FILE = OUTPUT_DIR / "chunks.jsonl"
 
@@ -58,8 +59,8 @@ def validate_document(doc: Dict[str, Any], path: Path) -> List[str]:
         if field not in doc:
             errors.append(f"{path.name}: 缺少欄位 `{field}`")
 
-    if "type" in doc and doc["type"] not in {"concept", "lore"}:
-        errors.append(f"{path.name}: `type` 必須是 concept 或 lore")
+    if "type" in doc and doc["type"] not in {"concept", "lore", "npc"}:
+        errors.append(f"{path.name}: `type` 必須是 concept 或 lore 或 npc")
 
     for list_field in [
         "related_concepts",
@@ -208,7 +209,7 @@ def collect_documents() -> Tuple[List[Tuple[Dict[str, Any], Path]], List[str]]:
     documents = []
     errors = []
 
-    for folder in [CONCEPTS_DIR, LORE_DIR]:
+    for folder in [CONCEPTS_DIR, LORE_DIR, NPC_DIR]:
         if not folder.exists():
             continue
 
