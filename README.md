@@ -13,7 +13,6 @@ RAG_AI/
 │   ├── query_rag.py
 │   └── answer_rag.py
 │   └──...
-├── chroma_db/
 ├── data/
 ├── .env
 ├── requirements.txt
