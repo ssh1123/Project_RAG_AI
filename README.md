@@ -12,6 +12,7 @@ RAG_AI/
 │   ├── build_embeddings.py
 │   ├── query_rag.py
 │   └── answer_rag.py
+│   └── main.py
 │   └──...
 ├── data/
 ├── .env
@@ -312,6 +313,12 @@ GEMINI_API_KEY=你的_api_key
 
 ```powershell
 .\env_rag\Scripts\python.exe scripts\generate_answer.py "什麼是關係人口？" --pretty
+```
+
+### 9. 將完整程式打包
+
+```powershell
+pyinstaller --onedir --name AI_Server scripts\main.py
 ```
 
 ## 輸出說明
